@@ -15,7 +15,7 @@ if [[ ! -d "${VENV_DIR}" ]]; then
 fi
 
 "${VENV_DIR}/bin/python" -m pip install --upgrade pip
-"${VENV_DIR}/bin/pip" install inference-cli
+"${VENV_DIR}/bin/pip" install -r "${ROOT_DIR}/requirements.txt"
 
 mkdir -p \
   "${ROOT_DIR}/.roboflow-cache" \

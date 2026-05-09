@@ -63,6 +63,34 @@ Or pass a different image:
 Visualized results are written to `outputs/`.
 The first successful request also primes the local model cache.
 
+## Export a Project 4 target map
+
+The robot side should consume the normalized target-map JSON, not raw Roboflow output.
+
+After saving three raw detector JSON files from the same calibration pose, run:
+
+```bash
+python scripts/export_target_map.py \
+  --raw-json outputs/batch_detection/raw/frame0.json outputs/batch_detection/raw/frame1.json outputs/batch_detection/raw/frame2.json \
+  --target-text "hello 2026" \
+  --image WIN_20260509_15_59_08_Pro.jpg \
+  --output outputs/target_map.json \
+  --overlay outputs/target_overlay.jpg
+```
+
+The target map uses the v1 contract:
+
+- markerless QWERTZ key-grid fitting
+- three-frame repeatability gate
+- image-space key centers only
+- visible end-effector tip detection
+
+To test the final image-space correction without robot hardware:
+
+```bash
+python scripts/simulate_visual_servo.py --target-x 500 --target-y 400 --tip-x 200 --tip-y 200
+```
+
 ## Current machine notes
 
 This machine already has:
