@@ -1,0 +1,9 @@
+.venv/
+.venv312/
+.roboflow-cache/
+.huggingface-cache/
+.yolo-cache/
+.rf-home/
+.mplconfig/
+outputs/
+.env.inference
