@@ -7,6 +7,7 @@ VENV_DIR="${ROOT_DIR}/.venv312"
 IMAGE_PATH="${1:-${ROOT_DIR}/key_detection.jpeg}"
 OUTPUT_DIR="${2:-${ROOT_DIR}/outputs}"
 TMP_DIR=""
+WAIT_TIMEOUT_SECONDS="${WAIT_TIMEOUT_SECONDS:-60}"
 
 cleanup() {
   if [[ -n "${TMP_DIR}" && -d "${TMP_DIR}" ]]; then
@@ -15,6 +16,48 @@ cleanup() {
 }
 
 trap cleanup EXIT
+
+wait_for_server() {
+  local host="$1"
+  local timeout_seconds="$2"
+
+  "${VENV_DIR}/bin/python" - "${host}" "${timeout_seconds}" <<'PY'
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+host = sys.argv[1].rstrip("/")
+timeout_seconds = float(sys.argv[2])
+deadline = time.monotonic() + timeout_seconds
+probe_urls = (f"{host}/docs", host)
+last_error = None
+
+while time.monotonic() < deadline:
+    for url in probe_urls:
+        try:
+            with urllib.request.urlopen(url, timeout=3) as response:
+                if response.status < 500:
+                    print(f"Inference server is ready at {host}")
+                    raise SystemExit(0)
+        except urllib.error.HTTPError as exc:
+            if exc.code < 500:
+                print(f"Inference server is ready at {host}")
+                raise SystemExit(0)
+            last_error = f"HTTP {exc.code} from {url}"
+        except Exception as exc:
+            last_error = f"{type(exc).__name__}: {exc}"
+    time.sleep(1)
+
+print(
+    f"Timed out waiting for inference server at {host} after {timeout_seconds:.0f}s."
+    + (f" Last error: {last_error}" if last_error else ""),
+    file=sys.stderr,
+)
+raise SystemExit(1)
+PY
+}
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Missing ${ENV_FILE}. Copy .env.inference.example to .env.inference and set ROBOFLOW_API_KEY." >&2
@@ -44,6 +87,8 @@ export MODEL_CACHE_DIR="${MODEL_CACHE_DIR:-${ROOT_DIR}/.roboflow-cache}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-${ROOT_DIR}/.mplconfig}"
 
 mkdir -p "${MODEL_CACHE_DIR}" "${MPLCONFIGDIR}" "${OUTPUT_DIR}"
+
+wait_for_server "${HOST}" "${WAIT_TIMEOUT_SECONDS}"
 
 TMP_DIR="$(mktemp -d)"
 NORMALIZED_IMAGE_PATH="${TMP_DIR}/$(basename "${IMAGE_PATH}")"
